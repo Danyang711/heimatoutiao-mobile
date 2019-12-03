@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="home">
       <!-- 导航栏 -->
-      <van-nav-bar title="首页"/>
+      <van-nav-bar title="首页" fixed/>
       <!-- 频道列表 -->
       <van-tabs v-model="active">
             <van-tab
@@ -10,7 +10,10 @@
               :key="channel.id"
             >
               <!-- 下拉刷新 -->
-            <van-pull-refresh v-model="isLoading" @refresh="onRefresh">
+            <van-pull-refresh
+              v-model="channel.isPullDownLoading"
+              @refresh="onRefresh"
+            >
               <!-- 文章列表 -->
             <van-list
               v-model="loading"
@@ -22,11 +25,33 @@
               v-for="article in channel.articles"
               :key="article.art_id.toString()"
               :title="article.title"
-            />
+              />
+           <van-cell
+              v-for="(article, index) in channel.articles"
+              :key="index"
+              :title="article.title"
+              >
+              <div slot="label">
+                <van-grid :border="false" :column-num="3">
+                  <van-grid-item v-for="(img, index) in article.cover.images" :key="index">
+                    <van-image height="80" :src="img" lazy-load />
+                  </van-grid-item>
+                </van-grid>
+                <div class="article-info">
+                  <div class="meta">
+                    <span>{{ article.aut_name }}</span>
+                    <span>{{ article.comm_count }}评论</span>
+                    <span>{{ article.pubdate | relativeTime  }}</span>
+                  </div>
+                  <van-icon name="close" />
+                </div>
+              </div>
+            </van-cell>
           </van-list>
         </van-pull-refresh>
       </van-tab>
     </van-tabs>
+
   </div>
 </template>
 
@@ -62,6 +87,7 @@ export default {
         // 置顶数据，这里可写可不写
         with_top: 1
       })
+      console.log(res)
       // ...数组，数组的展开操作符，它会把数组元素一个一个的拿出来，传递给使用的位置
       articles.push(...res.data.data.results)
       //  将 loading 设置为 false
@@ -76,11 +102,26 @@ export default {
       }
     },
     // 下拉刷新
-    onRefresh () {
-      setTimeout(() => {
-        this.$toast('刷新成功')
-        this.isLoading = false
-      }, 2000)
+    async onRefresh () {
+      // 获取当前频道列表
+      const activeChannel = this.channels[this.active]
+      // 请求获取最新推荐的文章列表
+      const res = await getArticles({
+        channel_id: activeChannel.id,
+        timestamp: Date.now(),
+        with_top: 1
+      })
+      // 将数据添加到文章列表顶部
+      const articles = res.data.data.results
+      activeChannel.articles.unshift(...articles)
+      //  关闭下拉刷新的 loading 状态
+      activeChannel.isPullDownLoading = false
+      this.$toast('刷新成功')
+      // 提示用户刷新成功
+      const message = articles.length
+        ? `更新了${articles.length}条数据`
+        : `暂无数据更新`
+      this.$toast(message)
     },
     // 获取频道列表
     async loadUserChannels () {
@@ -103,6 +144,24 @@ export default {
 }
 </script>
 
-<style>
-
+<style lang="less" scoped >
+.home {
+  .article-info span {
+    margin-right: 10px;
+  }
+  .van-tabs {
+    // 频道列表
+    /deep/ .van-tabs__wrap {
+      position: fixed;
+      top: 46px;
+      z-index: 2;
+      right: 0;
+      left: 0;
+    }
+    // 频道内容
+    /deep/ .van-tabs__content {
+      margin-top: 90px;
+    }
+  }
+}
 </style>

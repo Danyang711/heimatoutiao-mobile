@@ -12,7 +12,10 @@ import {
   Tab,
   Tabs,
   List,
-  PullRefresh
+  PullRefresh,
+  Image,
+  Lazyload,
+  Popup
 } from 'vant'
 
 Vue
@@ -28,3 +31,6 @@ Vue
   .use(Tabs)
   .use(List)
   .use(PullRefresh)
+  .use(Image)
+  .use(Lazyload)
+  .use(Popup)
