@@ -56,20 +56,59 @@
       </van-tab>
     </van-tabs>
     <!-- 弹窗 -->
-    <van-popup
-      v-model="isChannelShow"
-      round
-      position="bottom"
-      closeable
-      close-icon-position="top-left"
-      :style="{ height: '95%' }"
-    />
+      <van-popup
+        v-model="isChannelShow"
+        round
+        position="bottom"
+        :style="{ height: '95%' }"
+        closeable
+        close-icon-position="top-left"
+        @open="onChannelOpen"
+      >
+        <div class="channel-container">
+          <van-cell title="我的频道" :border="false">
+            <van-button
+            type="danger"
+            size="mini"
+            @click="isEdit = !isEdit"
+            >{{ isEdit ? '完成' : '编辑' }}</van-button>
+          </van-cell>
+          <van-grid :gutter="10">
+            <van-grid-item
+              v-for="(channel,index) in channels"
+              :key="channel.id"
+              :text="channel.name"
+              @click="onChannelActiveOrDelete(channel,index)"
+            >
+            <van-icon
+              class="close-icon"
+              slot="icon"
+              name="close"
+              size="20"
+              v-show="isEdit && channel.name !== '推荐'"
+              />
+            </van-grid-item>
+          </van-grid>
+
+          <van-cell title="推荐频道" :border="false" />
+          <van-grid :gutter="10">
+            <van-grid-item
+              v-for="channel in recommendChannels"
+              :key="channel.id"
+              :text="channel.name"
+              @click="onChannelAdd(channel)"
+            />
+          </van-grid>
+        </div>
+      </van-popup>
   </div>
 </template>
 
 <script>
 import { getUserChannels } from '@/api/user'
 import { getArticles } from '@/api/article'
+import { getAllChannels } from '@/api/channel'
+
 export default {
   name: 'HomePage',
   data () {
@@ -80,12 +119,38 @@ export default {
       // 频道列表
       channels: [],
       // 弹窗
-      isChannelShow: false
+      isChannelShow: false,
+      // 所有频道列表
+      allChannels: [],
+      // 我的频道编辑
+      isEdit: false
     }
   },
+  // 计算属性
+  computed: {
+    recommendChannels () {
+      const arr = []
+      // 遍历所有频道
+      this.allChannels.forEach(channel => {
+      //  判断是否包含当前遍历项
+      // find方法：找到第一个满足条件的元素
+        const ret = this.channels.find(item => {
+          return item.id === channel.id
+        })
+        // 如果不包含，那就把它收集起来
+        if (!ret) {
+          arr.push(channel)
+        }
+      })
+      return arr
+    }
+  },
+
   created () {
+    // 加载用户频道
     this.loadUserChannels()
   },
+
   methods: {
     async onLoad () {
       // 获取当前频道列表
@@ -101,7 +166,6 @@ export default {
         // 置顶数据，这里可写可不写
         with_top: 1
       })
-      console.log(res)
       // ...数组，数组的展开操作符，它会把数组元素一个一个的拿出来，传递给使用的位置
       articles.push(...res.data.data.results)
       //  将 loading 设置为 false
@@ -115,6 +179,7 @@ export default {
         activeChannel.finished = true
       }
     },
+
     // 下拉刷新
     async onRefresh () {
       // 获取当前频道列表
@@ -153,6 +218,28 @@ export default {
         channel.isPullDownLoading = false
       })
       this.channels = channels
+    },
+    // 获取所有列表
+    async onChannelOpen () {
+      const res = await getAllChannels()
+      this.allChannels = res.data.data.channels
+    },
+    // 添加频道
+    onChannelAdd (channel) {
+    // 将点击的频道项添加到我的频道列表中
+      this.channels.push(channel)
+    },
+
+    // 删除
+    onChannelActiveOrDelete (channel, index) {
+      if (this.isEdit && channel.name !== '推荐') {
+        // 编辑状态，执行删除操作
+        this.channels.splice(index, 1)
+      } else {
+        // 非编辑状态，执行切换频道
+        this.active = index
+        this.isChannelShow = false
+      }
     }
   }
 }
@@ -177,6 +264,11 @@ export default {
       margin-top: 90px;
     }
   }
+  /deep/ .van-grid-item__icon-wrapper {
+    position: absolute;
+    top: -12px;
+    right: -7px;
+  }
 }
 .wap-nav {
   position: sticky;
@@ -185,5 +277,8 @@ export default {
   align-items: center;
   background-color: #fff;
   opacity: 0.8;
+}
+.channel-container{
+  padding-top: 30px;
 }
 </style>
