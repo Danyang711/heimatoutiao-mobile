@@ -1,7 +1,16 @@
 <template>
   <div class="home">
       <!-- 导航栏 -->
-      <van-nav-bar title="首页" fixed/>
+      <van-nav-bar fixed>
+        <van-button
+          class="search-button"
+          slot="title"
+          round
+          type="info"
+          size="mini"
+          @click="$router.push('/search')"
+        >搜索</van-button>
+      </van-nav-bar>
       <!-- 频道列表 -->
       <van-tabs v-model="active">
             <!-- 面包按钮 -->
@@ -75,10 +84,10 @@
           </van-cell>
           <van-grid :gutter="10">
             <van-grid-item
-              v-for="(channel,index) in channels"
+              v-for="(channel, index) in channels"
               :key="channel.id"
               :text="channel.name"
-              @click="onChannelActiveOrDelete(channel,index)"
+              @click="onDelete(channel, index)"
             >
             <van-icon
               class="close-icon"
@@ -108,6 +117,7 @@
 import { getUserChannels } from '@/api/user'
 import { getArticles } from '@/api/article'
 import { getAllChannels } from '@/api/channel'
+import { getItem, setItem } from '@/utils/storages'
 
 export default {
   name: 'HomePage',
@@ -117,7 +127,7 @@ export default {
       loading: false,
       isLoading: false,
       // 频道列表
-      channels: [],
+      channels: getItem('channels') || [],
       // 弹窗
       isChannelShow: false,
       // 所有频道列表
@@ -126,6 +136,15 @@ export default {
       isEdit: false
     }
   },
+
+  // 侦听属性
+  watch: {
+    channels () {
+      // 本地数据持久化
+      setItem('channels', this.channels)
+    }
+  },
+
   // 计算属性
   computed: {
     recommendChannels () {
@@ -202,28 +221,48 @@ export default {
         : `暂无数据更新`
       this.$toast(message)
     },
+
     // 获取频道列表
     async loadUserChannels () {
-      const res = await getUserChannels()
-      const channels = res.data.data.channels
-      // 遍历
-      channels.forEach(channel => {
+      let channels = []
+      const localChannels = getItem('channels')
+      // 如果有本地存储的频道列表，则获取使用
+      if (localChannels) {
+        channels = localChannels
+      } else {
+        // 如果没有，则请求获取线上推荐的频道列表
+        const res = await getUserChannels()
+        const onLineChannels = res.data.data.channels
+        // 遍历
+        onLineChannels.forEach(channel => {
         // 频道的文章列表
-        channel.articles = []
-        // 频道的加载结束状态
-        channel.finished = false
-        // 获取频道下一页数据的时间戳
-        channel.timestamp = null
-        // 存储频道的下拉刷新 loading 状态
-        channel.isPullDownLoading = false
-      })
-      this.channels = channels
+          channel.articles = []
+          // 频道的加载结束状态
+          channel.finished = false
+          // 获取频道下一页数据的时间戳
+          channel.timestamp = null
+          // 下拉刷新状态
+          channel.isPullDownLoading = false
+        })
+        channels = onLineChannels
+
+        this.channels = channels
+      }
     },
+
     // 获取所有列表
     async onChannelOpen () {
       const res = await getAllChannels()
-      this.allChannels = res.data.data.channels
+      const allChannels = res.data.data.channels
+      allChannels.forEach(channel => {
+        channel.articles = []
+        channel.finished = false
+        channel.timestamp = null
+        channel.isPullDownLoading = false
+      })
+      this.allChannels = allChannels
     },
+
     // 添加频道
     onChannelAdd (channel) {
     // 将点击的频道项添加到我的频道列表中
@@ -231,7 +270,7 @@ export default {
     },
 
     // 删除
-    onChannelActiveOrDelete (channel, index) {
+    onDelete (channel, index) {
       if (this.isEdit && channel.name !== '推荐') {
         // 编辑状态，执行删除操作
         this.channels.splice(index, 1)
@@ -281,4 +320,8 @@ export default {
 .channel-container{
   padding-top: 30px;
 }
+.search-button {
+    width: 100%;
+    background-color: #5babfb;
+  }
 </style>
